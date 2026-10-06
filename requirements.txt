@@ -1,2 +1,3 @@
+pypdf==6.19.0
 # Inference runs in Ollama on this machine. No cloud model client is installed.
 # Install Ollama from https://ollama.com/download, then: ollama pull llama3.1:8b

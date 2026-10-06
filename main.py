@@ -11,12 +11,17 @@ On an 8 GB Mac, set NOTE_MODEL=llama3.2:3b.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import urlparse
+
+from pdf_form import build_form_prompt, read_completed_fields
 
 
 NOTE_SECTIONS = (
@@ -120,15 +125,15 @@ def list_local_models(host: str | None = None) -> list[str]:
     return [item["name"] for item in body.get("models", [])]
 
 
-def generate_note(encounter: Encounter) -> str:
-    """Return a draft clinical note generated on this machine."""
+def generate_from_prompt(user_prompt: str) -> str:
+    """Send prompt text to the local model and return the draft note."""
     host, model = model_settings()
     payload = {
         "model": model,
         "stream": False,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_prompt(encounter)},
+            {"role": "user", "content": user_prompt},
         ],
         "options": {"temperature": 0.2},
     }
@@ -145,12 +150,27 @@ def generate_note(encounter: Encounter) -> str:
     return content.strip()
 
 
-def main() -> None:
+def generate_note(encounter: Encounter) -> str:
+    """Return a draft clinical note generated on this machine."""
+    return generate_from_prompt(build_prompt(encounter))
+
+
+def generate_note_from_pdf(path: str | Path) -> str:
+    """Read a completed fillable PDF and draft a note from its fields.
+
+    The local model cannot accept a PDF upload, so completed form fields are
+    read on this machine and included in the prompt.
+    """
+    return generate_from_prompt(build_form_prompt(read_completed_fields(path)))
+
+
+def _print_status() -> None:
     """Show the local model target and whether Ollama is reachable."""
     host, model = model_settings()
     print("Clinical note generator")
     print(f"Local model: {model}")
     print(f"Local host: {host}")
+    print("Usage: python main.py path\\to\\encounter.pdf")
     try:
         installed = list_local_models(host)
     except RuntimeError as exc:
@@ -164,6 +184,40 @@ def main() -> None:
         print(f"No models installed yet. Run: ollama pull {model}")
     if not any(name == model or name.startswith(f"{model}:") for name in installed):
         print(f"Default model is not installed yet. Run: ollama pull {model}")
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Draft a note from a fillable PDF, or show local model status."""
+    parser = argparse.ArgumentParser(
+        description="Draft a psychiatric clinical note from a fillable encounter PDF."
+    )
+    parser.add_argument(
+        "pdf",
+        nargs="?",
+        help="Path to a completed fillable encounter PDF",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Write the draft note to this file",
+    )
+    args = parser.parse_args(argv)
+    if not args.pdf:
+        _print_status()
+        return
+
+    pdf_path = Path(args.pdf)
+    try:
+        note = generate_note_from_pdf(pdf_path)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        print(exc, file=sys.stderr)
+        raise SystemExit(1) from exc
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.write_text(note + "\n", encoding="utf-8")
+        print(f"Wrote {output_path}")
+    print(note)
 
 
 if __name__ == "__main__":
