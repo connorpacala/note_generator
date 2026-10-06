@@ -1,1 +1,2 @@
-# Language-model client dependencies will be added when a provider is chosen.
+# Inference runs in Ollama on this machine. No cloud model client is installed.
+# Install Ollama from https://ollama.com/download, then: ollama pull llama3.1:8b
