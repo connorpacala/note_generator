@@ -11,7 +11,7 @@ The default model is text-only, so the PDF is not uploaded. The app reads comple
 - Python 3.10 or newer (3.12 is what this project was set up with)
 - [Ollama](https://ollama.com/download) for Windows or macOS
 - About 8 GB of free disk space for the default model
-- A completed copy of the psychiatric medication-management follow-up SOAP form
+- A completed copy of the psychiatric medication-management follow-up SOAP form, or the included sample at `samples/sample-followup.pdf`
 
 Memory:
 
@@ -68,13 +68,31 @@ python main.py
 
 You should see the model name, `http://127.0.0.1:11434`, and `llama3.1:8b` in the installed list. If Ollama is not running, the command tells you to start it and pull the model.
 
-## 4. Fill the PDF
+## 4. Run the sample form
+
+`samples/sample-followup.pdf` is a completed practice visit. The patient identifier is `SAMPLE-001`. Nothing in it is a real chart.
+
+From the project directory, with the virtual environment active:
+
+```powershell
+python main.py samples/sample-followup.pdf
+```
+
+To save that draft:
+
+```powershell
+python main.py samples/sample-followup.pdf -o note.txt
+```
+
+The same commands work in macOS Terminal.
+
+## 5. Fill your own PDF
 
 Open the follow-up form, complete the visit, and save it. The blank template has no answers, and the program will stop rather than invent a note.
 
 Checked boxes and typed text are the only input. A checked negative, such as "No suicidal ideation," is included. An unchecked box is left out.
 
-## 5. Generate a note
+## 6. Generate a note from your form
 
 Windows:
 
