@@ -8,7 +8,7 @@ The default model is text-only, so the PDF is not uploaded. The app reads comple
 
 ## What you need
 
-- Python 3.10 or newer (3.12 is what this project was set up with)
+- Python 3.9 or newer
 - [Ollama](https://ollama.com/download) for Windows or macOS
 - About 8 GB of free disk space for the default model
 - A completed copy of the psychiatric medication-management follow-up SOAP form, or the included sample at `samples/sample-followup.pdf`
@@ -114,6 +114,28 @@ python main.py "C:\path\to\completed-form.pdf" -o note.txt
 
 The first note after a restart is slower because Ollama loads the model. Later notes are faster. On a GPU, a note is often ready in well under a minute.
 
+## Use the upload page instead of the terminal
+
+```bash
+python gui.py
+```
+
+This opens a page in your browser at `http://127.0.0.1:8765/`. Drop the completed follow-up PDF on the page, or click to choose it, then press **Generate SOAP note**. The draft appears below with a **Copy** button. Press Ctrl+C in the terminal to stop the page.
+
+The page is served only to this computer. The uploaded PDF is read in memory and is not saved to disk. The page refuses requests from other websites and cannot load anything from the internet.
+
+## What stays on this computer
+
+- The model request goes only to Ollama at a loopback address. Proxy settings such as `HTTP_PROXY` are ignored for it, and redirects are refused.
+- Ollama cloud models, such as names ending in `-cloud`, forward prompts to ollama.com. The app refuses them.
+- Keep Ollama listening on `127.0.0.1`. If you set Ollama's server to `0.0.0.0`, other devices on your network can use your model, though they cannot see past notes.
+
+Some things outside this app can still move text off the machine:
+
+- **Copy** puts the note on the clipboard. On a Mac with Handoff turned on, Universal Clipboard can sync it to your other Apple devices.
+- Browser extensions with access to all sites can read the upload page.
+- A note saved with `-o` sits wherever you save it. A folder synced by iCloud Drive, OneDrive, or Dropbox uploads it.
+
 ## Choose a different local model
 
 `NOTE_MODEL` overrides the default `llama3.1:8b`. Pull that model with Ollama before you use it.
@@ -132,7 +154,7 @@ export NOTE_MODEL=llama3.2:3b
 python main.py "/path/to/completed-form.pdf"
 ```
 
-`OLLAMA_HOST` defaults to `http://127.0.0.1:11434`. The only accepted hosts are `127.0.0.1`, `localhost`, and `::1`. A remote address is rejected.
+`OLLAMA_HOST` defaults to `http://127.0.0.1:11434`. The only accepted hosts are `127.0.0.1`, `localhost`, and `::1`. A remote address is rejected, and so is `0.0.0.0`.
 
 ## What the draft contains
 
@@ -150,3 +172,4 @@ The note is a SOAP draft: Subjective, Objective, Assessment, and Plan. The model
 | Encrypted PDFs are not supported | Remove the password, or use an unencrypted copy. |
 | The model host must be a local address | Leave `OLLAMA_HOST` unset, or set it to `http://127.0.0.1:11434`. |
 | The local model returned an empty note | Confirm the model is pulled, then run the command again. |
+| is an Ollama cloud model | Set `NOTE_MODEL` to a downloaded model such as `llama3.1:8b`. |

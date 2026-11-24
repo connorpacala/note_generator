@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Clinical note generator</title>
+  <style>
+    :root {
+      --paper: #f3efe7;
+      --card: #fffcf8;
+      --ink: #1c2430;
+      --muted: #5c655f;
+      --line: #ddd4c6;
+      --teal: #1e4d4a;
+      --teal-deep: #163c39;
+      --hot: #e6f1ef;
+      --danger-bg: #f8ebe6;
+      --danger: #8d3d2c;
+      --ready: #2c7a4b;
+      --wait: #9a7030;
+      --shadow: 0 18px 40px rgba(48, 40, 28, 0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--paper);
+      color-scheme: light;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 480px at 50% -180px, #e7f0ee 0%, transparent 70%),
+        var(--paper);
+      font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(720px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 3.25rem 0 4rem;
+    }
+
+    .eyebrow {
+      margin: 0 0 0.4rem;
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+      font-size: 2.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    .lede {
+      max-width: 38rem;
+      margin: 0.85rem 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .status {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.55rem;
+      margin: 1.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      margin-top: 0.4rem;
+      border-radius: 50%;
+      background: var(--wait);
+      flex: none;
+    }
+
+    .status.ready .dot { background: var(--ready); }
+    .status.down .dot { background: var(--danger); }
+
+    .panel {
+      margin-top: 1.75rem;
+      padding: 1.15rem;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .dropzone {
+      position: relative;
+      display: flex;
+      min-height: 210px;
+      padding: 1.5rem;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      text-align: center;
+      color: var(--teal);
+      background: #f7f4ee;
+      border: 1.5px dashed #c3b6a3;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+
+    .dropzone:hover,
+    .dropzone.hot {
+      background: var(--hot);
+      border-color: var(--teal);
+    }
+
+    .dropzone:focus-within {
+      outline: 2px solid var(--teal);
+      outline-offset: 3px;
+    }
+
+    .dropzone input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .icon {
+      width: 2.4rem;
+      height: 2.4rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .drop-title {
+      color: var(--ink);
+      font-size: 1.15rem;
+      font-weight: 650;
+    }
+
+    .drop-hint { color: var(--muted); }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.9rem;
+      padding: 0.8rem 0.95rem;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .file-copy {
+      min-width: 0;
+    }
+
+    .file-name,
+    .file-meta {
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-name { font-weight: 650; }
+    .file-meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .text-button,
+    .copy {
+      border: 0;
+      background: transparent;
+      color: var(--teal);
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .text-button:disabled,
+    .copy:disabled {
+      color: #9aa39a;
+      cursor: not-allowed;
+    }
+
+    .generate {
+      width: 100%;
+      margin-top: 0.9rem;
+      padding: 0.95rem 1.1rem;
+      border: 0;
+      border-radius: 12px;
+      background: var(--teal);
+      color: #f7f4ee;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .generate:hover:not(:disabled) { background: var(--teal-deep); }
+
+    .generate:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+
+    .generate:focus-visible,
+    .text-button:focus-visible,
+    .copy:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 3px;
+    }
+
+    .progress,
+    .error {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      margin: 0.9rem 0 0;
+    }
+
+    .progress { color: var(--muted); }
+
+    .error {
+      padding: 0.8rem 0.9rem;
+      color: var(--danger);
+      background: var(--danger-bg);
+      border-radius: 12px;
+    }
+
+    .spinner {
+      width: 0.95rem;
+      height: 0.95rem;
+      margin-top: 0.2rem;
+      border: 2px solid #ddd4c6;
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      flex: none;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; border-top-color: var(--teal); }
+    }
+
+    .result { margin-top: 1.5rem; }
+
+    .result-bar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    h2 {
+      margin: 0;
+      font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+      font-size: 1.45rem;
+      font-weight: 600;
+    }
+
+    .note {
+      margin: 0.75rem 0 0;
+      padding: 1.15rem 1.3rem 1.25rem;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+      font-size: 1.05rem;
+      line-height: 1.55;
+    }
+
+    .note h3 {
+      margin: 1rem 0 0.2rem;
+      font-size: 1.12rem;
+      font-weight: 650;
+    }
+
+    .note h3:first-child { margin-top: 0; }
+
+    .note p { margin: 0.18rem 0; }
+
+    .note p.bullet {
+      position: relative;
+      padding-left: 1rem;
+    }
+
+    .note p.bullet::before {
+      content: "";
+      position: absolute;
+      left: 0.12rem;
+      top: 0.62em;
+      width: 0.32rem;
+      height: 0.32rem;
+      border-radius: 50%;
+      background: var(--teal);
+    }
+
+    .note p.bullet.nested {
+      margin-left: 1.15rem;
+    }
+
+    .note p.bullet.nested::before {
+      width: 0.28rem;
+      height: 0.28rem;
+      background: transparent;
+      border: 1.5px solid var(--teal);
+    }
+
+    .footnote {
+      margin: 0.75rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">On this computer</p>
+    <h1>Clinical note generator</h1>
+    <p class="lede">Upload a completed follow-up PDF. The draft SOAP note is written on this computer for you to review, edit, and sign.</p>
+    <p id="status" class="status" role="status">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="status-text">Checking the local model…</span>
+    </p>
+
+    <section class="panel" aria-label="Upload follow-up PDF">
+      <label class="dropzone" id="dropzone">
+        <input id="file" type="file" accept=".pdf,application/pdf">
+        <svg class="icon" viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M14 8.5h13.2L36 17.2V39a2.5 2.5 0 0 1-2.5 2.5h-19A2.5 2.5 0 0 1 12 39V11a2.5 2.5 0 0 1 2.5-2.5Z" fill="none" stroke="currentColor" stroke-width="2.2"/>
+          <path d="M27 8.5V18h9" fill="none" stroke="currentColor" stroke-width="2.2"/>
+          <path d="M24 23v12M18.5 29.5 24 23.8l5.5 5.7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="drop-title" id="drop-title">Drop the follow-up PDF here</span>
+        <span class="drop-hint" id="drop-hint">or click to choose a file</span>
+      </label>
+
+      <div class="file-row" id="file-row" hidden>
+        <div class="file-copy">
+          <p class="file-name" id="file-name"></p>
+          <p class="file-meta" id="file-meta"></p>
+        </div>
+        <button class="text-button" id="remove" type="button">Remove</button>
+      </div>
+
+      <p class="error" id="error" hidden></p>
+      <button class="generate" id="generate" type="button" disabled>Generate SOAP note</button>
+      <p class="progress" id="progress" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Reading the form and drafting the note on this computer. The first note after a restart can take about a minute.</span>
+      </p>
+    </section>
+
+    <section class="result" id="result" hidden aria-live="polite">
+      <div class="result-bar">
+        <h2>Draft SOAP note</h2>
+        <button class="copy" id="copy" type="button">Copy</button>
+      </div>
+      <div class="note" id="note"></div>
+      <p class="footnote">Review and edit this draft before you sign it. This program does not sign the note.</p>
+    </section>
+  </main>
+  <script>
+    const MAX_BYTES = 20 * 1024 * 1024;
+    const fileInput = document.getElementById("file");
+    const dropzone = document.getElementById("dropzone");
+    const dropTitle = document.getElementById("drop-title");
+    const dropHint = document.getElementById("drop-hint");
+    const fileRow = document.getElementById("file-row");
+    const fileName = document.getElementById("file-name");
+    const fileMeta = document.getElementById("file-meta");
+    const removeButton = document.getElementById("remove");
+    const generateButton = document.getElementById("generate");
+    const errorBox = document.getElementById("error");
+    const progress = document.getElementById("progress");
+    const result = document.getElementById("result");
+    const note = document.getElementById("note");
+    const copyButton = document.getElementById("copy");
+    const status = document.getElementById("status");
+    const statusText = document.getElementById("status-text");
+
+    let selected = null;
+    let busy = false;
+    let dragDepth = 0;
+    let rawNote = "";
+
+    function appendInline(parent, text) {
+      const pattern = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+      let last = 0;
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        if (match.index > last) {
+          parent.appendChild(document.createTextNode(text.slice(last, match.index)));
+        }
+        const strong = match[1] != null;
+        const el = document.createElement(strong ? "strong" : "em");
+        el.textContent = strong ? match[1] : match[2];
+        parent.appendChild(el);
+        last = pattern.lastIndex;
+      }
+      if (last < text.length) {
+        parent.appendChild(document.createTextNode(text.slice(last)));
+      }
+    }
+
+    function renderNote(text) {
+      rawNote = text || "";
+      note.replaceChildren();
+      rawNote.split(/\n/).forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        const heading = trimmed.match(/^\*\*(.+)\*\*$/);
+        if (heading && heading[1].length < 80 && !heading[1].includes("**")) {
+          const title = document.createElement("h3");
+          title.textContent = heading[1].replace(/:$/, "");
+          note.appendChild(title);
+          return;
+        }
+        const bullet = trimmed.match(/^([-*+]|\u2022)\s+(.*)$/);
+        const paragraph = document.createElement("p");
+        if (bullet) paragraph.className = /^[ \t]/.test(line) ? "bullet nested" : "bullet";
+        appendInline(paragraph, bullet ? bullet[2] : trimmed);
+        note.appendChild(paragraph);
+      });
+    }
+
+    function plainNote(text) {
+      return text.replace(/\*\*/g, "").replace(/^[ \t]*[*+-] /gm, "- ").trim();
+    }
+
+    function isPdf(file) {
+      const name = (file.name || "").toLowerCase();
+      return file.type === "application/pdf" || name.endsWith(".pdf");
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function showError(message) {
+      errorBox.hidden = !message;
+      errorBox.textContent = message || "";
+    }
+
+    function renderFile() {
+      const hasFile = Boolean(selected);
+      fileRow.hidden = !hasFile;
+      if (hasFile) {
+        fileName.textContent = selected.name || "followup.pdf";
+        fileMeta.textContent = formatSize(selected.size || 0);
+        dropTitle.textContent = "Drop a different PDF to replace it";
+        dropHint.textContent = "or click to choose another file";
+      } else {
+        fileName.textContent = "";
+        fileMeta.textContent = "";
+        dropTitle.textContent = "Drop the follow-up PDF here";
+        dropHint.textContent = "or click to choose a file";
+      }
+      generateButton.disabled = !hasFile || busy;
+      removeButton.disabled = busy;
+    }
+
+    function setFile(file) {
+      showError("");
+      if (!file) {
+        selected = null;
+        renderFile();
+        return;
+      }
+      if (!isPdf(file)) {
+        showError("Choose a PDF file.");
+        return;
+      }
+      if (file.size > MAX_BYTES) {
+        showError("That PDF is larger than 20 MB.");
+        return;
+      }
+      selected = file;
+      renderFile();
+    }
+
+    function pickPdf(fileList) {
+      const files = Array.from(fileList || []);
+      const pdf = files.find(isPdf);
+      if (pdf) return pdf;
+      if (files.length) showError("Choose a PDF file.");
+      return null;
+    }
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file) setFile(file);
+      fileInput.value = "";
+    });
+
+    removeButton.addEventListener("click", () => setFile(null));
+
+    window.addEventListener("dragenter", (event) => {
+      event.preventDefault();
+      dragDepth += 1;
+      dropzone.classList.add("hot");
+    });
+
+    window.addEventListener("dragover", (event) => {
+      event.preventDefault();
+    });
+
+    window.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) dropzone.classList.remove("hot");
+    });
+
+    window.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dragDepth = 0;
+      dropzone.classList.remove("hot");
+      const file = pickPdf(event.dataTransfer && event.dataTransfer.files);
+      if (file) setFile(file);
+    });
+
+    generateButton.addEventListener("click", async () => {
+      if (!selected || busy) return;
+      busy = true;
+      showError("");
+      result.hidden = true;
+      rawNote = "";
+      note.replaceChildren();
+      progress.hidden = false;
+      generateButton.textContent = "Generating…";
+      generateButton.setAttribute("aria-busy", "true");
+      renderFile();
+
+      const body = new FormData();
+      body.append("pdf", selected, selected.name || "followup.pdf");
+      try {
+        const response = await fetch("/generate", { method: "POST", body });
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          data = {};
+        }
+        if (!response.ok || !data.note) {
+          showError(data.error || "Could not generate a note from that PDF.");
+          return;
+        }
+        renderNote(data.note);
+        result.hidden = false;
+        result.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (networkError) {
+        showError("Could not reach the note generator. Leave this page open and try again.");
+      } finally {
+        busy = false;
+        progress.hidden = true;
+        generateButton.textContent = "Generate SOAP note";
+        generateButton.removeAttribute("aria-busy");
+        renderFile();
+      }
+    });
+
+    copyButton.addEventListener("click", async () => {
+      const text = plainNote(rawNote);
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (clipboardError) {
+        const range = document.createRange();
+        range.selectNodeContents(note);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand("copy");
+      }
+      copyButton.textContent = "Copied";
+      window.setTimeout(() => {
+        copyButton.textContent = "Copy";
+      }, 2000);
+    });
+
+    fetch("/status")
+      .then((response) => response.json())
+      .then((data) => {
+        status.classList.toggle("ready", Boolean(data.ready));
+        status.classList.toggle("down", !data.ready);
+        statusText.textContent = data.detail || "The local model status is unavailable.";
+      })
+      .catch(() => {
+        status.classList.add("down");
+        statusText.textContent = "Could not check the local model.";
+      });
+  </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ machine and are placed in the prompt.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -346,17 +347,28 @@ def _completed_value(field: dict | None) -> str | None:
     return text
 
 
-def read_completed_fields(path: str | Path) -> list[FormEntry]:
-    """Return completed fields in form order. Blank and unchecked fields are omitted."""
-    pdf_path = Path(path)
-    if not pdf_path.is_file():
-        raise FileNotFoundError(f"PDF not found: {pdf_path}")
-    reader = PdfReader(str(pdf_path))
+def read_completed_fields(
+    source: str | Path | bytes, name: str | None = None
+) -> list[FormEntry]:
+    """Return completed fields in form order. Blank and unchecked fields are omitted.
+
+    source is a file path, or the PDF bytes so an upload never touches disk.
+    name labels the PDF in error messages when bytes are passed.
+    """
+    if isinstance(source, bytes):
+        label = name or "the uploaded PDF"
+        reader = PdfReader(BytesIO(source))
+    else:
+        pdf_path = Path(source)
+        if not pdf_path.is_file():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        label = pdf_path.name
+        reader = PdfReader(str(pdf_path))
     if reader.is_encrypted:
-        raise ValueError(f"Encrypted PDFs are not supported: {pdf_path.name}")
+        raise ValueError(f"Encrypted PDFs are not supported: {label}")
     fields = reader.get_fields()
     if not fields:
-        raise ValueError(f"This PDF has no fillable form fields: {pdf_path.name}")
+        raise ValueError(f"This PDF has no fillable form fields: {label}")
 
     entries: list[FormEntry] = []
     known: set[str] = set()
